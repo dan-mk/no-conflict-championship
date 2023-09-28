@@ -10,4 +10,6 @@ export const players = {
   PLAYER_9: "Player 9",
   PLAYER_10: "Player 10",
   PLAYER_11: "Player 11",
+  PLAYER_12: "Player 12",
+  PLAYER_13: "Player 13",
 };

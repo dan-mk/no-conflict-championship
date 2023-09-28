@@ -26,30 +26,6 @@ function getAllMatchesWithAllPlayers(sports) {
     return players;
   }
 
-  function getPlayersFromMatches(sport, matches) {
-    const players = [];
-
-    for (const matchId of matches) {
-      for (const stageName in sport.matches) {
-        const stage = sport.matches[stageName];
-
-        if (Object.keys(stage.matches).includes(matchId)) {
-          const match = stage.matches[matchId];
-
-          if (stageName === "GROUP_STAGE") {
-            players.push(...getPlayersFromTeams(sport, match.teams));
-          } else if (stageName === "ELIMINATION_STAGE_1") {
-            players.push(...getPlayersFromGroups(sport, match.teams));
-          } else {
-            players.push(...getPlayersFromMatches(sport, match.teams));
-          }
-        }
-      }
-    }
-
-    return players;
-  }
-
   for (const sportId in sports) {
     const sport = sports[sportId];
 
@@ -61,16 +37,12 @@ function getAllMatchesWithAllPlayers(sports) {
 
         const allPlayers = new Set();
 
-        if (stageName === "GROUP_STAGE") {
+        if (stageName.startsWith("GROUP_STAGE")) {
           getPlayersFromTeams(sport, match.teams).forEach((playerId) =>
             allPlayers.add(playerId)
           );
-        } else if (stageName === "ELIMINATION_STAGE_1") {
-          getPlayersFromGroups(sport, match.teams).forEach((playerId) =>
-            allPlayers.add(playerId)
-          );
         } else {
-          getPlayersFromMatches(sport, match.teams).forEach((playerId) =>
+          getPlayersFromGroups(sport, match.groups).forEach((playerId) =>
             allPlayers.add(playerId)
           );
         }
@@ -162,28 +134,38 @@ function getPlayersSchedule(players, matches) {
         });
       }
     }
+
+    playersSchedule[playerId].matches.sort((a, b) => {
+      const dateA = new Date(a.date.start);
+      const dateB = new Date(b.date.start);
+
+      return dateA - dateB;
+    });
   }
 
   return playersSchedule;
 }
 
-function doesPlayerHaveConflicts(playerSchedule) {
+function getPlayerConflicts(playerSchedule) {
   const playerMatches = playerSchedule.matches;
 
   const allMatchPairs = [];
-  for (const match of playerMatches) {
-    for (const otherMatch of playerMatches) {
-      if (
-        match.sportId !== otherMatch.sportId ||
-        match.matchId !== otherMatch.matchId
-      ) {
-        allMatchPairs.push([match, otherMatch]);
-      }
+  for (let i = 0; i < playerMatches.length; i++) {
+    for (let j = i + 1; j < playerMatches.length; j++) {
+      const match = playerMatches[i];
+      const otherMatch = playerMatches[j];
+      allMatchPairs.push([match, otherMatch]);
     }
   }
 
+  let conflicts = [];
+
   for (const matchPair of allMatchPairs) {
     const [match1, match2] = matchPair;
+
+    if (match1.sportId === match2.sportId) {
+      continue;
+    }
 
     const match1StartDate = new Date(match1.date.start);
     const match1EndDate = new Date(match1.date.end);
@@ -195,22 +177,21 @@ function doesPlayerHaveConflicts(playerSchedule) {
       continue;
     }
 
-    return true;
+    conflicts.push(matchPair);
   }
 
-  return false;
+  return conflicts;
 }
 
-function doesAnyPlayerHaveConflicts(playersSchedule) {
+function getAllConflicts(playersSchedule) {
+  let conflicts = [];
+
   for (const playerId in playersSchedule) {
     const playerSchedule = playersSchedule[playerId];
-
-    if (doesPlayerHaveConflicts(playerSchedule)) {
-      return true;
-    }
+    conflicts.push(...getPlayerConflicts(playerSchedule));
   }
 
-  return false;
+  return conflicts;
 }
 
 function irandom(min, max) {
@@ -220,13 +201,26 @@ function irandom(min, max) {
 function main() {
   const allMatches = getAllMatchesWithAllPlayers(sports);
 
-  let playersSchedule;
+  let minConflicts = Infinity;
+  let bestConflicts;
+  let bestPlayersSchedule;
+  let numberOfIterations = 0;
+
   do {
     const matchesWithDates = randomlyAssignDatesToMatches(allMatches, sports);
-    playersSchedule = getPlayersSchedule(players, matchesWithDates);
-  } while (doesAnyPlayerHaveConflicts(playersSchedule));
+    const playersSchedule = getPlayersSchedule(players, matchesWithDates);
+    const conflicts = getAllConflicts(playersSchedule);
 
-  console.log(JSON.stringify(playersSchedule, null, 2));
+    if (conflicts.length < minConflicts) {
+      minConflicts = conflicts.length;
+      bestConflicts = conflicts;
+      bestPlayersSchedule = playersSchedule;
+    }
+  } while (minConflicts > 0 && numberOfIterations++ < 10000);
+
+  console.log(JSON.stringify(bestPlayersSchedule, null, 2));
+  console.log(JSON.stringify(bestConflicts, null, 2));
+  console.log(minConflicts);
 }
 
 main();
