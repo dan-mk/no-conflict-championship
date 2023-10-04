@@ -177,7 +177,7 @@ function getPlayerConflicts(playerSchedule) {
       continue;
     }
 
-    conflicts.push(matchPair);
+    conflicts.push([...matchPair, playerSchedule.name]);
   }
 
   return conflicts;
@@ -191,7 +191,71 @@ function getAllConflicts(playersSchedule) {
     conflicts.push(...getPlayerConflicts(playerSchedule));
   }
 
+  conflicts = conflicts.filter((conflict) => {
+    const [match1, match2] = conflict;
+    return (
+      match1.stageName.startsWith("GROUP_STAGE") &&
+      match2.stageName.startsWith("GROUP_STAGE")
+    );
+  });
+
   return conflicts;
+}
+
+function getConflictsPenalty(conflicts) {
+  // both group stage: 1 million points
+  // one group stage: 1000 points
+  // quarter finals: 1000 points
+  // semi finals: 10 points
+  // third place match: 1 point
+  // final: 1 points
+
+  let penalty = 0;
+
+  for (const conflict of conflicts) {
+    const [match1, match2] = conflict;
+
+    if (
+      match1.stageName.startsWith("GROUP_STAGE") &&
+      match2.stageName.startsWith("GROUP_STAGE")
+    ) {
+      penalty += 1000000;
+    }
+
+    if (
+      match1.stageName.startsWith("GROUP_STAGE") ||
+      match2.stageName.startsWith("GROUP_STAGE")
+    ) {
+      penalty += 1000;
+    }
+
+    if (
+      match1.stageName === "QUARTER_FINALS" ||
+      match2.stageName === "QUARTER_FINALS"
+    ) {
+      penalty += 1000;
+    }
+
+    if (
+      match1.stageName === "SEMI_FINALS" ||
+      match2.stageName === "SEMI_FINALS"
+    ) {
+      penalty += 10;
+    }
+
+    if (
+      match1.stageName === "THIRD_PLACE_MATCH" ||
+      match2.stageName === "THIRD_PLACE_MATCH"
+    ) {
+      penalty += 1;
+    }
+
+    if (match1.stageName === "FINAL" || match2.stageName === "FINAL") {
+      penalty += 1;
+    }
+  }
+
+  return penalty;
 }
 
 function irandom(min, max) {
@@ -201,7 +265,7 @@ function irandom(min, max) {
 function main() {
   const allMatches = getAllMatchesWithAllPlayers(sports);
 
-  let minConflicts = Infinity;
+  let minConflictsPenalty = Infinity;
   let bestConflicts;
   let bestPlayersSchedule;
   let numberOfIterations = 0;
@@ -210,17 +274,18 @@ function main() {
     const matchesWithDates = randomlyAssignDatesToMatches(allMatches, sports);
     const playersSchedule = getPlayersSchedule(players, matchesWithDates);
     const conflicts = getAllConflicts(playersSchedule);
+    const conflictsPenalty = getConflictsPenalty(conflicts);
 
-    if (conflicts.length < minConflicts) {
-      minConflicts = conflicts.length;
+    if (conflictsPenalty < minConflictsPenalty) {
+      minConflictsPenalty = conflictsPenalty;
       bestConflicts = conflicts;
       bestPlayersSchedule = playersSchedule;
     }
-  } while (minConflicts > 0 && numberOfIterations++ < 10000);
+  } while (minConflictsPenalty > 0 && numberOfIterations++ < 10);
 
   console.log(JSON.stringify(bestPlayersSchedule, null, 2));
   console.log(JSON.stringify(bestConflicts, null, 2));
-  console.log(minConflicts);
+  console.log(minConflictsPenalty);
 }
 
 main();
