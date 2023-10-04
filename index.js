@@ -194,7 +194,7 @@ function getAllConflicts(playersSchedule) {
   conflicts = conflicts.filter((conflict) => {
     const [match1, match2] = conflict;
     return (
-      match1.stageName.startsWith("GROUP_STAGE") &&
+      match1.stageName.startsWith("GROUP_STAGE") ||
       match2.stageName.startsWith("GROUP_STAGE")
     );
   });
@@ -216,17 +216,10 @@ function getConflictsPenalty(conflicts) {
     const [match1, match2] = conflict;
 
     if (
-      match1.stageName.startsWith("GROUP_STAGE") &&
-      match2.stageName.startsWith("GROUP_STAGE")
-    ) {
-      penalty += 1000000;
-    }
-
-    if (
       match1.stageName.startsWith("GROUP_STAGE") ||
       match2.stageName.startsWith("GROUP_STAGE")
     ) {
-      penalty += 1000;
+      penalty += 1000000;
     }
 
     if (
