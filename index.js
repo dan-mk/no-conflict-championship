@@ -251,6 +251,36 @@ function getConflictsPenalty(conflicts) {
   return penalty;
 }
 
+function getDiffBetweenGames(playersSchedule) {
+  let minDiffBetweenGames = Infinity;
+  let minDiffMatches;
+
+  for (const playerId in playersSchedule) {
+    const playerSchedule = playersSchedule[playerId];
+
+    const matches = playerSchedule.matches.filter((match) =>
+      match.stageName.startsWith("GROUP_STAGE")
+    );
+
+    for (let i = 0; i < matches.length - 1; i++) {
+      const match = matches[i];
+      const nextMatch = matches[i + 1];
+
+      const matchEndDate = new Date(match.date.end);
+      const nextMatchStartDate = new Date(nextMatch.date.start);
+
+      const diffBetweenGames = (nextMatchStartDate - matchEndDate) / 1000 / 60;
+
+      if (diffBetweenGames < minDiffBetweenGames) {
+        minDiffBetweenGames = diffBetweenGames;
+        minDiffMatches = [match, nextMatch, playerSchedule.name];
+      }
+    }
+  }
+
+  return [minDiffBetweenGames, minDiffMatches];
+}
+
 function irandom(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -258,27 +288,16 @@ function irandom(min, max) {
 function main() {
   const allMatches = getAllMatchesWithAllPlayers(sports);
 
-  let minConflictsPenalty = Infinity;
-  let bestConflicts;
-  let bestPlayersSchedule;
-  let numberOfIterations = 0;
+  const matchesWithDates = randomlyAssignDatesToMatches(allMatches, sports);
+  const playersSchedule = getPlayersSchedule(players, matchesWithDates);
+  const conflicts = getAllConflicts(playersSchedule);
+  const conflictsPenalty = getConflictsPenalty(conflicts);
+  const diffBetweenGames = getDiffBetweenGames(playersSchedule);
 
-  do {
-    const matchesWithDates = randomlyAssignDatesToMatches(allMatches, sports);
-    const playersSchedule = getPlayersSchedule(players, matchesWithDates);
-    const conflicts = getAllConflicts(playersSchedule);
-    const conflictsPenalty = getConflictsPenalty(conflicts);
-
-    if (conflictsPenalty < minConflictsPenalty) {
-      minConflictsPenalty = conflictsPenalty;
-      bestConflicts = conflicts;
-      bestPlayersSchedule = playersSchedule;
-    }
-  } while (minConflictsPenalty > 0 && numberOfIterations++ < 10);
-
-  console.log(JSON.stringify(bestPlayersSchedule, null, 2));
-  console.log(JSON.stringify(bestConflicts, null, 2));
-  console.log(minConflictsPenalty);
+  console.log(JSON.stringify(playersSchedule, null, 2));
+  console.log(JSON.stringify(conflicts, null, 2));
+  console.log(conflictsPenalty);
+  console.log(JSON.stringify(diffBetweenGames, null, 2));
 }
 
 main();
